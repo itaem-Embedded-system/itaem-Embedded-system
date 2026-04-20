@@ -7,6 +7,13 @@ extern "C" {
 
 #include <stdint.h>
 
+typedef enum {
+  TAM_CALIB_OK = 0,
+  TAM_CALIB_ERR_STATE = -1,
+  TAM_CALIB_ERR_COVERAGE = -2,
+  TAM_CALIB_ERR_FLASH = -3
+} TAM_CalibResult_t;
+
 typedef struct {
   uint8_t sensor_ready;
   uint8_t i2c_online;
@@ -14,12 +21,20 @@ typedef struct {
   uint8_t reg_status;
   uint8_t reg_ctrl1;
   uint8_t reg_ctrl2;
+  int16_t raw_mag[3];
   int16_t mag[3];
   uint8_t mag_valid;
   uint8_t poll_error_count;
   uint8_t bad_sample_count;
   uint8_t reinit_active;
   uint8_t reinit_try_count;
+  uint8_t calib_valid;
+  uint8_t calib_active;
+  uint8_t calib_dirty;
+  uint8_t calib_reserved;
+  uint32_t calib_sample_count;
+  float calib_offset[3];
+  float calib_scale[3];
 } TAM_DiagSnapshot_t;
 
 /**
@@ -52,6 +67,32 @@ uint8_t TAM_IsSensorReady(void);
   * @param  snapshot  输出快照结构体
   */
 void TAM_GetDiagSnapshot(TAM_DiagSnapshot_t *snapshot);
+
+/**
+  * @brief  开始一轮磁力计校准采集（重置 min/max 统计）
+  */
+void TAM_CalibrationStart(void);
+
+/**
+  * @brief  取消当前正在进行的校准采集，不改动已保存参数
+  */
+void TAM_CalibrationCancel(void);
+
+/**
+  * @brief  结束校准并把结果保存到片内 Flash
+  * @retval TAM_CALIB_OK            成功
+  * @retval TAM_CALIB_ERR_STATE     当前未处于校准采集状态
+  * @retval TAM_CALIB_ERR_COVERAGE  采样数量或旋转覆盖不足
+  * @retval TAM_CALIB_ERR_FLASH     Flash 擦写或校验失败
+  */
+TAM_CalibResult_t TAM_CalibrationSave(void);
+
+/**
+  * @brief  清除已保存的校准参数，并恢复默认补偿
+  * @retval TAM_CALIB_OK         成功
+  * @retval TAM_CALIB_ERR_FLASH  Flash 擦写失败
+  */
+TAM_CalibResult_t TAM_CalibrationClear(void);
 
 #ifdef __cplusplus
 }
